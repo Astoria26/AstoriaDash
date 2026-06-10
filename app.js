@@ -108,20 +108,40 @@ const RUN_DISTS = [
 let notState = {sport:'run', mode:'pb'};
 let nmap=null, ntrack=null;
 
+const BE_LABELS = {"400m":"400 m","1/2 mile":"½ mi","1k":"1 km","1 mile":"1 mi",
+  "2 mile":"2 mi","5k":"5 km","10k":"10 km","15k":"15 km","10 mile":"10 mi",
+  "20k":"20 km","Half-Marathon":"Meia","30k":"30 km","Marathon":"Maratona"};
+const BY_ID = {}; DATA.forEach(a=>{ if(a.id!=null) BY_ID[String(a.id)]=a; });
+
 function notableData(){
   const list = DATA.filter(a=>a.g===notState.sport && a.distance>0);
-  if(notState.mode==='pb' && notState.sport!=='swim'){
-    // melhor tempo estimado por distância padrão (treinos que atingiram a distância)
-    const rows=[];
+  if(notState.mode==='power'){
+    const pc = (EXTRA&&EXTRA.power_curve)||{};
+    const rows = Object.keys(pc).map(Number).sort((a,b)=>a-b).map(s=>{
+      const e=pc[String(s)], a=BY_ID[e.id];
+      const lab = s<60? s+' s' : s<3600? (s/60)+' min' : s===3600?'1 h':'1h30';
+      return a?{label:lab, time:Math.round(e.w)+' W', date:a.d, act:a}:null;
+    }).filter(Boolean);
+    return {cols:['Duração','Data','Potência'], rows, kind:'pb'};
+  }
+  if(notState.mode==='pb' && notState.sport==='run'){
+    const be = (EXTRA&&EXTRA.best_efforts)||{};
+    const rows = Object.entries(be)
+      .filter(([n,e])=>BE_LABELS[n]&&BY_ID[e.id])
+      .map(([n,e])=>({label:BE_LABELS[n], time:hms(e.t), date:BY_ID[e.id].d,
+        act:BY_ID[e.id], sortVal:e.d||0}))
+      .sort((a,b)=>a.sortVal-b.sortVal);
+    if(rows.length) return {cols:['Distância','Data','Tempo'], rows, kind:'pb'};
+    // fallback (enriquecimento ainda em andamento): estimativa, só treinos com GPS
+    const gps = list.filter(a=>a.polyline);
+    const est=[];
     RUN_DISTS.forEach(d=>{
-      const cand = list.filter(a=>a.distance>=d.m && a.average_speed>0);
+      const cand = gps.filter(a=>a.distance>=d.m && a.average_speed>0);
       if(!cand.length) return;
-      // melhor = maior velocidade média sustentada na distância
       const best = cand.reduce((b,a)=>a.average_speed>b.average_speed?a:b);
-      const t = d.m/best.average_speed;
-      rows.push({label:d.label, time:hms(t), date:best.d, act:best, sortVal:t});
+      est.push({label:d.label, time:hms(d.m/best.average_speed), date:best.d, act:best});
     });
-    return {cols:['Distância','Data','Tempo'], rows, kind:'pb'};
+    return {cols:['Distância','Data','Tempo'], rows:est, kind:'pb'};
   }
   if(notState.mode==='pb' && notState.sport==='swim'){
     const dists=[{label:'400 m',m:400},{label:'750 m',m:750},{label:'1 km',m:1000},{label:'1.9 km',m:1900},{label:'3.8 km',m:3800}];
@@ -146,8 +166,9 @@ function notableData(){
 function renderNotable(){
   document.getElementById('notSport').textContent = GLABEL[notState.sport];
   // sub-abas conforme esporte
+  const hasPower = EXTRA && EXTRA.power_curve && Object.keys(EXTRA.power_curve).length;
   const modes = notState.sport==='ride'
-    ? [['long','Mais longas'],['elev','Elevação']]
+    ? [['long','Mais longas'],['elev','Elevação'],...(hasPower?[['power','Potência']]:[])]
     : notState.sport==='swim'
     ? [['pb','Melhores'],['long','Mais longas']]
     : [['pb','Melhores'],['long','Mais longas'],['elev','Elevação']];
@@ -155,7 +176,7 @@ function renderNotable(){
   document.getElementById('notModeTabs').innerHTML = modes.map(([v,t])=>
     `<button class="tab ${v===notState.mode?'on':''}" data-accent data-m="${v}">${t}</button>`).join('');
   document.querySelectorAll('#notModeTabs .tab').forEach(b=>b.onclick=()=>{notState.mode=b.dataset.m;renderNotable();});
-  const subtxt = {pb:'melhores marcas por distância',long:'as mais longas do histórico',elev:'as com mais elevação'};
+  const subtxt = {pb:'melhores marcas por distância',long:'as mais longas do histórico',elev:'as com mais elevação',power:'máxima potência média por duração (medida)'};
   document.getElementById('notSub').textContent = subtxt[notState.mode]||'';
 
   const D = notableData();
@@ -194,6 +215,7 @@ function selectNotable(r, tr, allRows){
       <div class="nstat"><div class="v">${ritmo(a)}</div><div class="l">${a.g==='ride'?'vel. média':'ritmo médio'}</div></div>
       <div class="nstat"><div class="v">${a.total_elevation_gain?nf(a.total_elevation_gain)+' m':'–'}</div><div class="l">elevação</div></div>
       ${a.average_heartrate?`<div class="nstat"><div class="v">${Math.round(a.average_heartrate)}</div><div class="l">FC média (bpm)</div></div>`:''}
+      ${(a.device_watts&&a.average_watts)?`<div class="nstat"><div class="v">${Math.round(a.average_watts)} W</div><div class="l">potência média</div></div>`:''}
     </div>`;
   drawMap(a.polyline);
 }
