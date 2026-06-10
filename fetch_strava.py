@@ -33,6 +33,7 @@ KEEP = [
     "average_heartrate",
     "max_heartrate",
     "average_watts",
+    "device_watts",            # true = potencia medida (medidor/smart trainer)
     "trainer",                 # 1 = rolo/virtual
     "polyline",                # rota codificada (preenchido abaixo)
 ]
