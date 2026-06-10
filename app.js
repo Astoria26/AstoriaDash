@@ -95,22 +95,19 @@ function decodePolyline(str){
    NOTABLE — melhores por distância / mais longas / elevação + mapa
    ==================================================================== */
 const RUN_DISTS = [
-  {label:'1 mi',  m:1609},
+  {label:'1 km',  m:1000},
   {label:'5 km',  m:5000},
   {label:'10 km', m:10000},
-  {label:'10 mi', m:16093},
-  {label:'21 km', m:21000},
+  {label:'15 km', m:15000},
   {label:'Meia',  m:21097},
   {label:'30 km', m:30000},
-  {label:'42 km', m:42000},
   {label:'Maratona', m:42195},
 ];
 let notState = {sport:'run', mode:'pb'};
 let nmap=null, ntrack=null;
 
-const BE_LABELS = {"400m":"400 m","1/2 mile":"½ mi","1k":"1 km","1 mile":"1 mi",
-  "2 mile":"2 mi","5k":"5 km","10k":"10 km","15k":"15 km","10 mile":"10 mi",
-  "20k":"20 km","Half-Marathon":"Meia","30k":"30 km","Marathon":"Maratona"};
+const BE_LABELS = {"400m":"400 m","1k":"1 km","5k":"5 km","10k":"10 km",
+  "15k":"15 km","20k":"20 km","Half-Marathon":"Meia","30k":"30 km","Marathon":"Maratona"};
 const BY_ID = {}; DATA.forEach(a=>{ if(a.id!=null) BY_ID[String(a.id)]=a; });
 
 function notableData(){
@@ -129,7 +126,7 @@ function notableData(){
     const rows = Object.entries(be)
       .filter(([n,e])=>BE_LABELS[n]&&BY_ID[e.id])
       .map(([n,e])=>({label:BE_LABELS[n], time:hms(e.t), date:BY_ID[e.id].d,
-        act:BY_ID[e.id], sortVal:e.d||0}))
+        act:BY_ID[e.id], sortVal:e.d||0, eff:{t:e.t, d:e.d}}))
       .sort((a,b)=>a.sortVal-b.sortVal);
     if(rows.length) return {cols:['Distância','Data','Tempo'], rows, kind:'pb'};
     // fallback (enriquecimento ainda em andamento): estimativa, só treinos com GPS
@@ -139,7 +136,7 @@ function notableData(){
       const cand = gps.filter(a=>a.distance>=d.m && a.average_speed>0);
       if(!cand.length) return;
       const best = cand.reduce((b,a)=>a.average_speed>b.average_speed?a:b);
-      est.push({label:d.label, time:hms(d.m/best.average_speed), date:best.d, act:best});
+      est.push({label:d.label, time:hms(d.m/best.average_speed), date:best.d, act:best, eff:{t:d.m/best.average_speed, d:d.m}});
     });
     return {cols:['Distância','Data','Tempo'], rows:est, kind:'pb'};
   }
@@ -150,7 +147,7 @@ function notableData(){
       const cand=list.filter(a=>a.distance>=d.m && a.average_speed>0);
       if(!cand.length) return;
       const best=cand.reduce((b,a)=>a.average_speed>b.average_speed?a:b);
-      rows.push({label:d.label,time:hms(d.m/best.average_speed),date:best.d,act:best});
+      rows.push({label:d.label,time:hms(d.m/best.average_speed),date:best.d,act:best,eff:{t:d.m/best.average_speed,d:d.m}});
     });
     return {cols:['Distância','Data','Tempo'], rows, kind:'pb'};
   }
@@ -206,6 +203,14 @@ function renderNotable(){
 function selectNotable(r, tr, allRows){
   allRows.forEach(x=>x.classList.remove('sel')); tr.classList.add('sel');
   const a = r.act;
+  let prPace = '';
+  if(r.eff && r.eff.t && r.eff.d){
+    const spd = r.eff.d/r.eff.t;   // m/s do trecho da marca
+    const p = notState.sport==='swim' ? paceSwim(spd) : paceRun(spd);
+    prPace = `<div class="nstat" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px">
+      <div class="v" style="color:var(--orange)">${r.label} em ${r.time} · ${p}</div>
+      <div class="l">ritmo da marca</div></div>`;
+  }
   document.getElementById('notDetail').innerHTML = `
     <div class="date">${fmtDateLong(a.d)}</div>
     <div class="nm">${a.name||''}</div>
@@ -216,6 +221,7 @@ function selectNotable(r, tr, allRows){
       <div class="nstat"><div class="v">${a.total_elevation_gain?nf(a.total_elevation_gain)+' m':'–'}</div><div class="l">elevação</div></div>
       ${a.average_heartrate?`<div class="nstat"><div class="v">${Math.round(a.average_heartrate)}</div><div class="l">FC média (bpm)</div></div>`:''}
       ${(a.device_watts&&a.average_watts)?`<div class="nstat"><div class="v">${Math.round(a.average_watts)} W</div><div class="l">potência média</div></div>`:''}
+      ${prPace}
     </div>`;
   drawMap(a.polyline);
 }
@@ -369,21 +375,28 @@ function buildStats(){
         scales:{x:{grid:{display:false}},y:{grid:GRID}}}});
   }
 
-  /* --- velocidade × FC (scatter) --- */
+  /* --- velocidade × FC (scatter) — unidade e faixa por esporte --- */
   const pShr=document.getElementById('pSpeedHr');
-  const shrData=list.filter(a=>a.average_heartrate>0&&a.average_speed>0);
+  // 'tudo' mistura unidades incompatíveis; usa só corrida nesse caso
+  const shrBase = statSport==='all' ? list.filter(a=>a.g==='run') : list;
+  const isRideS=statSport==='ride', isSwimS=statSport==='swim';
+  const toX = a => isRideS ? a.average_speed*3.6
+                 : isSwimS ? 100/a.average_speed/60      // min/100m
+                 : 1000/a.average_speed/60;              // min/km
+  const inRange = x => isRideS ? (x>=8&&x<=60) : isSwimS ? (x>=1&&x<=4) : (x>=2.5&&x<=10);
+  const shrData=shrBase.filter(a=>a.average_heartrate>0&&a.average_speed>0)
+    .map(a=>({x:toX(a), y:a.average_heartrate, a})).filter(p=>inRange(p.x));
   if(shrData.length<5){ pShr.classList.add('hidden'); }
   else{
     pShr.classList.remove('hidden');
-    const isRideS=statSport==='ride';
     document.getElementById('shrTitle').textContent=isRideS?'Velocidade × FC':'Ritmo × FC';
-    const pts=shrData.map(a=>({x:isRideS?a.average_speed*3.6:1000/a.average_speed/60, y:a.average_heartrate, a}));
+    const fmtX = v => isRideS ? nf(v)+' km/h' : isSwimS ? mss(v*60)+'/100m' : mss(v*60)+'/km';
     mk('cSpeedHr',{type:'scatter',
-      data:{datasets:[{data:pts,pointBackgroundColor:GCOLOR[statSport==='all'?'run':statSport]+'55',pointRadius:3,pointBorderWidth:0}]},
+      data:{datasets:[{data:shrData,pointBackgroundColor:GCOLOR[statSport==='all'?'run':statSport]+'55',pointRadius:3,pointBorderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:false},tooltip:{callbacks:{
-          label:c=>{const p=c.raw;return [p.a.name, (isRideS?nf(p.x,1)+' km/h':mss(p.x*60)+'/km')+' · '+Math.round(p.y)+' bpm'];}}}},
-        scales:{x:{grid:GRID,reverse:!isRideS,ticks:{callback:v=>isRideS?nf(v)+'':mss(v*60)}},
+          label:c=>{const p=c.raw;return [p.a.name, fmtX(p.x)+' · '+Math.round(p.y)+' bpm'];}}}},
+        scales:{x:{grid:GRID,reverse:!isRideS,ticks:{callback:v=>isRideS?nf(v):mss(v*60)}},
           y:{grid:GRID,ticks:{callback:v=>v+' bpm'}}}}});
   }
 }
