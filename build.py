@@ -1,0 +1,1 @@
+<!DOCTYPE html><html lang="pt-BR"><meta charset="utf-8"><title>StravaStats</title><body style="font-family:sans-serif;padding:40px">Primeira atualização em andamento — rode o workflow na aba Actions.</body></html>

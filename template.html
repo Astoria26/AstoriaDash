@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__SITE_TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f3ef; --card:#fffdf9; --ink:#1c1a17; --muted:#8a857c;
+    --border:#e4dfd5; --orange:#fc4c02; --bike:#1d6fa5; --swim:#0e8a7d;
+    --other:#9a948a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 60px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;
+    border-bottom:3px solid var(--ink);padding-bottom:14px;margin-bottom:26px}
+  h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:2.2rem;
+    text-transform:uppercase;letter-spacing:.5px}
+  h1 .dot{color:var(--orange)}
+  .updated{color:var(--muted);font-size:.85rem}
+
+  h2{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.35rem;
+    text-transform:uppercase;letter-spacing:.5px;margin:34px 0 4px}
+  .sub{color:var(--muted);font-size:.85rem;margin-bottom:14px}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .card .tag{font-family:'Barlow Condensed',sans-serif;font-weight:600;text-transform:uppercase;
+    letter-spacing:.8px;font-size:.95rem;display:flex;align-items:center;gap:7px;margin-bottom:10px}
+  .swatch{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+  .metric .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.45rem;line-height:1.1}
+  .metric .l{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.5px}
+
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:transparent;padding:6px 12px;cursor:pointer;
+    font-family:'DM Sans',sans-serif;font-size:.85rem;color:var(--muted)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .chartbox{position:relative;height:320px}
+  @media(max-width:600px){.chartbox{height:260px}}
+
+  #heatmap{overflow-x:auto;padding-bottom:4px}
+  #heatmap svg{display:block}
+  .legend{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:.75rem;margin-top:8px}
+  .legend i{width:11px;height:11px;border-radius:2px;display:inline-block}
+
+  .records{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .rec{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--accent,var(--orange));
+    border-radius:10px;padding:12px 14px}
+  .rec .what{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.6px}
+  .rec .val{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.7rem;line-height:1.15}
+  .rec .who{font-size:.8rem;color:var(--muted);margin-top:3px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;font-size:.88rem}
+  th{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.6px;
+    font-weight:600;font-size:.85rem;text-align:left;padding:10px 12px;background:var(--ink);color:#fff}
+  td{padding:9px 12px;border-top:1px solid var(--border);white-space:nowrap}
+  td.name{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+  .pill{font-size:.7rem;font-weight:700;color:#fff;border-radius:99px;padding:2px 8px}
+
+  footer{margin-top:46px;color:var(--muted);font-size:.78rem;border-top:1px solid var(--border);padding-top:14px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>__SITE_TITLE__<span class="dot">.</span></h1>
+    <span class="updated" id="updated"></span>
+  </header>
+
+  <section>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2>Consistência</h2>
+    <div class="sub">Tempo de treino por dia, últimos 12 meses</div>
+    <div class="panel">
+      <div id="heatmap"></div>
+      <div class="legend">Menos
+        <i style="background:#ece8e0"></i><i style="background:#fec5ab"></i>
+        <i style="background:#fd8d59"></i><i style="background:#fc4c02"></i>
+        <i style="background:#a83202"></i> Mais
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Volume</h2>
+    <div class="sub">Distância por período (horas quando “Tudo”)</div>
+    <div class="panel">
+      <div class="controls">
+        <div class="seg" id="volSport">
+          <button data-v="run" class="on">Corrida</button>
+          <button data-v="ride">Pedal</button>
+          <button data-v="swim">Natação</button>
+          <button data-v="all">Tudo</button>
+        </div>
+        <div class="seg" id="volGran">
+          <button data-v="week" class="on">Semana</button>
+          <button data-v="month">Mês</button>
+        </div>
+      </div>
+      <div class="chartbox"><canvas id="volChart"></canvas></div>
+    </div>
+  </section>
+
+  <section id="paceSection">
+    <h2>Evolução do ritmo · Corrida</h2>
+    <div class="sub">Cada ponto é um treino (≥ 3 km); a linha é a média móvel de 10 treinos</div>
+    <div class="panel"><div class="chartbox"><canvas id="paceChart"></canvas></div></div>
+  </section>
+
+  <section id="hrSection">
+    <h2>Frequência cardíaca média</h2>
+    <div class="sub">FC média por treino, com média móvel de 10 treinos</div>
+    <div class="panel">
+      <div class="controls">
+        <div class="seg" id="hrSport">
+          <button data-v="run" class="on">Corrida</button>
+          <button data-v="ride">Pedal</button>
+        </div>
+      </div>
+      <div class="chartbox"><canvas id="hrChart"></canvas></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recordes</h2>
+    <div class="sub">Melhores marcas de todos os tempos</div>
+    <div class="records" id="records"></div>
+  </section>
+
+  <section>
+    <h2>Últimas atividades</h2>
+    <div class="sub">&nbsp;</div>
+    <div class="tablewrap"><table id="recent">
+      <thead><tr><th>Data</th><th>Atividade</th><th>Esporte</th><th>Dist.</th><th>Tempo</th><th>Ritmo</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <footer>Dados via API do Strava · atualizado automaticamente todos os dias · sem rotas nem localização por privacidade</footer>
+</div>
+
+<script>
+const DATA = __DATA__;
+
+/* ---------- agrupamento de esportes ---------- */
+const SPORT_MAP = {Run:'run',TrailRun:'run',VirtualRun:'run',
+  Ride:'ride',VirtualRide:'ride',GravelRide:'ride',MountainBikeRide:'ride',EBikeRide:'ride',
+  Swim:'swim'};
+const GROUP_LABEL = {run:'Corrida',ride:'Pedal',swim:'Natação',other:'Outros',all:'Total'};
+const GROUP_COLOR = {run:'#fc4c02',ride:'#1d6fa5',swim:'#0e8a7d',other:'#9a948a',all:'#1c1a17'};
+
+DATA.forEach(a=>{
+  a.g = SPORT_MAP[a.sport_type] || 'other';
+  a.d = new Date(a.start_date_local);
+});
+
+/* ---------- formatação ---------- */
+const pad = n => String(n).padStart(2,'0');
+const fmtDate = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)}`;
+const fmtKm = (m,dec=0) => (m/1000).toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec})+' km';
+function fmtDur(s){
+  s = Math.round(s);
+  const h = Math.floor(s/3600), m = Math.round((s%3600)/60);
+  return h>0 ? `${h}h ${pad(m)}min` : `${m}min`;
+}
+function fmtHours(s){ return (s/3600).toLocaleString('pt-BR',{maximumFractionDigits:0})+' h'; }
+function mss(sec){ const m=Math.floor(sec/60), s=Math.round(sec%60); return `${m}:${pad(s)}`; }
+const paceRun  = sp => sp>0 ? mss(1000/sp)+' /km' : '–';
+const paceSwim = sp => sp>0 ? mss(100/sp)+' /100m' : '–';
+const kmh = sp => (sp*3.6).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km/h';
+function ritmo(a){
+  if(a.g==='run')  return paceRun(a.average_speed);
+  if(a.g==='swim') return paceSwim(a.average_speed);
+  if(a.g==='ride') return kmh(a.average_speed);
+  return '–';
+}
+
+/* ---------- cards de resumo ---------- */
+function summarize(list){
+  const s = {n:list.length,dist:0,time:0,elev:0,spdW:0,distW:0};
+  list.forEach(a=>{
+    s.dist += a.distance||0; s.time += a.moving_time||0; s.elev += a.total_elevation_gain||0;
+    if(a.average_speed && a.distance){ s.spdW += a.average_speed*a.distance; s.distW += a.distance; }
+  });
+  s.avgSpeed = s.distW ? s.spdW/s.distW : 0;
+  return s;
+}
+(function buildCards(){
+  const order = ['run','ride','swim','all'];
+  const host = document.getElementById('cards');
+  order.forEach(g=>{
+    const list = g==='all' ? DATA : DATA.filter(a=>a.g===g);
+    if(!list.length) return;
+    const s = summarize(list);
+    let fourth;
+    if(g==='run')       fourth = {v:paceRun(s.avgSpeed), l:'pace médio'};
+    else if(g==='ride') fourth = {v:kmh(s.avgSpeed), l:'vel. média'};
+    else if(g==='swim') fourth = {v:paceSwim(s.avgSpeed), l:'pace médio'};
+    else                fourth = {v:s.elev.toLocaleString('pt-BR',{maximumFractionDigits:0})+' m', l:'elevação'};
+    host.insertAdjacentHTML('beforeend', `
+      <div class="card">
+        <div class="tag"><span class="swatch" style="background:${GROUP_COLOR[g]}"></span>${GROUP_LABEL[g]}</div>
+        <div class="metrics">
+          <div class="metric"><div class="v">${s.n}</div><div class="l">atividades</div></div>
+          <div class="metric"><div class="v">${fmtKm(s.dist)}</div><div class="l">distância</div></div>
+          <div class="metric"><div class="v">${fmtHours(s.time)}</div><div class="l">tempo</div></div>
+          <div class="metric"><div class="v">${fourth.v}</div><div class="l">${fourth.l}</div></div>
+        </div>
+      </div>`);
+  });
+  const last = DATA[DATA.length-1];
+  document.getElementById('updated').textContent =
+    'última atividade: ' + fmtDate(last.d);
+})();
+
+/* ---------- heatmap de consistência ---------- */
+(function heatmap(){
+  const byDay = {};
+  DATA.forEach(a=>{
+    const k = a.start_date_local.slice(0,10);
+    byDay[k] = (byDay[k]||0) + (a.moving_time||0);
+  });
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today); start.setDate(start.getDate()-364);
+  start.setDate(start.getDate()-start.getDay());            // volta para o domingo
+  const cell=12, gap=3, top=18, left=30;
+  const weeks = Math.ceil(((today-start)/864e5+1)/7);
+  const colors = ['#ece8e0','#fec5ab','#fd8d59','#fc4c02','#a83202'];
+  const level = s => s===0?0 : s<1800?1 : s<3600?2 : s<5400?3 : 4;
+  const MON = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const DOW = ['','seg','','qua','','sex',''];
+  let svg = `<svg width="${left+weeks*(cell+gap)}" height="${top+7*(cell+gap)+4}" font-family="DM Sans" font-size="9" fill="#8a857c">`;
+  DOW.forEach((t,i)=>{ if(t) svg += `<text x="0" y="${top+i*(cell+gap)+10}">${t}</text>`; });
+  let lastMonth = -1;
+  for(let w=0; w<weeks; w++){
+    for(let dow=0; dow<7; dow++){
+      const d = new Date(start); d.setDate(start.getDate()+w*7+dow);
+      if(d>today) continue;
+      if(dow===0 && d.getMonth()!==lastMonth){
+        lastMonth = d.getMonth();
+        svg += `<text x="${left+w*(cell+gap)}" y="11">${MON[lastMonth]}</text>`;
+      }
+      const k = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const sec = byDay[k]||0;
+      svg += `<rect x="${left+w*(cell+gap)}" y="${top+dow*(cell+gap)}" width="${cell}" height="${cell}" rx="2" fill="${colors[level(sec)]}">`+
+             `<title>${fmtDate(d)} — ${sec? fmtDur(sec) : 'descanso'}</title></rect>`;
+    }
+  }
+  svg += '</svg>';
+  document.getElementById('heatmap').innerHTML = svg;
+})();
+
+/* ---------- Chart.js: padrões ---------- */
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.color = '#8a857c';
+Chart.defaults.borderColor = '#e4dfd5';
+
+/* ---------- volume ---------- */
+let volState = {sport:'run', gran:'week'}, volChart;
+function isoWeekStart(d){
+  const x = new Date(d); const day = (x.getDay()+6)%7;       // 0 = segunda
+  x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;
+}
+function buildVolume(){
+  const list = volState.sport==='all' ? DATA : DATA.filter(a=>a.g===volState.sport);
+  const buckets = new Map();
+  list.forEach(a=>{
+    let key,label;
+    if(volState.gran==='week'){
+      const ws = isoWeekStart(a.d);
+      key = ws.getTime(); label = `${pad(ws.getDate())}/${pad(ws.getMonth()+1)}/${String(ws.getFullYear()).slice(2)}`;
+    } else {
+      key = a.d.getFullYear()*100 + a.d.getMonth();
+      label = `${pad(a.d.getMonth()+1)}/${String(a.d.getFullYear()).slice(2)}`;
+    }
+    if(!buckets.has(key)) buckets.set(key,{label,val:0});
+    const b = buckets.get(key);
+    b.val += volState.sport==='all' ? (a.moving_time||0)/3600 : (a.distance||0)/1000;
+  });
+  let entries = [...buckets.entries()].sort((a,b)=>a[0]-b[0]).map(e=>e[1]);
+  if(volState.gran==='week') entries = entries.slice(-52);
+  const unit = volState.sport==='all' ? 'h' : 'km';
+  if(volChart) volChart.destroy();
+  volChart = new Chart(document.getElementById('volChart'),{
+    type:'bar',
+    data:{labels:entries.map(e=>e.label),
+      datasets:[{data:entries.map(e=>e.val), backgroundColor:GROUP_COLOR[volState.sport], borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:1})+' '+unit}}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:12}},
+        y:{beginAtZero:true,ticks:{callback:v=>v+' '+unit}}}}
+  });
+}
+document.querySelectorAll('#volSport button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#volSport button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); volState.sport=b.dataset.v; buildVolume();
+});
+document.querySelectorAll('#volGran button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#volGran button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); volState.gran=b.dataset.v; buildVolume();
+});
+buildVolume();
+
+/* ---------- média móvel ---------- */
+function rolling(vals, win){
+  return vals.map((_,i)=>{
+    const s = vals.slice(Math.max(0,i-win+1), i+1);
+    return s.reduce((a,b)=>a+b,0)/s.length;
+  });
+}
+
+/* ---------- evolução do ritmo (corrida) ---------- */
+(function paceChart(){
+  const runs = DATA.filter(a=>a.g==='run' && a.distance>=3000 && a.average_speed>0);
+  if(runs.length<5){ document.getElementById('paceSection').classList.add('hidden'); return; }
+  const labels = runs.map(a=>fmtDate(a.d));
+  const paces  = runs.map(a=>1000/a.average_speed/60);       // min/km
+  const avg = rolling(paces,10);
+  new Chart(document.getElementById('paceChart'),{
+    data:{labels,
+      datasets:[
+        {type:'scatter',data:paces,pointBackgroundColor:'rgba(252,76,2,.35)',pointRadius:3,pointBorderWidth:0},
+        {type:'line',data:avg,borderColor:'#1c1a17',borderWidth:2,pointRadius:0,tension:.3}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:items=>runs[items[0].dataIndex].name,
+          label:c=>fmtDate(runs[c.dataIndex].d)+' · '+mss(c.parsed.y*60)+' /km · '+fmtKm(runs[c.dataIndex].distance,1)}}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:10}},
+        y:{reverse:true,ticks:{callback:v=>mss(v*60)}}}}
+  });
+})();
+
+/* ---------- frequência cardíaca ---------- */
+let hrChartObj;
+function buildHR(sport){
+  const list = DATA.filter(a=>a.g===sport && a.average_heartrate);
+  if(list.length<5){
+    if(sport==='run' && DATA.some(a=>a.g==='ride' && a.average_heartrate)){ buildHR('ride'); return; }
+    document.getElementById('hrSection').classList.add('hidden'); return;
+  }
+  const labels = list.map(a=>fmtDate(a.d));
+  const hrs = list.map(a=>a.average_heartrate);
+  if(hrChartObj) hrChartObj.destroy();
+  hrChartObj = new Chart(document.getElementById('hrChart'),{
+    data:{labels,
+      datasets:[
+        {type:'scatter',data:hrs,pointBackgroundColor:GROUP_COLOR[sport]+'59',pointRadius:3,pointBorderWidth:0},
+        {type:'line',data:rolling(hrs,10),borderColor:'#1c1a17',borderWidth:2,pointRadius:0,tension:.3}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:items=>list[items[0].dataIndex].name,
+          label:c=>fmtDate(list[c.dataIndex].d)+' · '+Math.round(c.parsed.y)+' bpm'}}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:10}},
+        y:{ticks:{callback:v=>v+' bpm'}}}}
+  });
+}
+document.querySelectorAll('#hrSport button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#hrSport button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); buildHR(b.dataset.v);
+});
+buildHR('run');
+
+/* ---------- recordes ---------- */
+(function records(){
+  const host = document.getElementById('records');
+  const best = (list, score) => list.reduce((b,a)=> score(a)>score(b)?a:b, list[0]);
+  function add(group, what, val, a){
+    if(!a) return;
+    host.insertAdjacentHTML('beforeend', `
+      <div class="rec" style="--accent:${GROUP_COLOR[group]}">
+        <div class="what">${GROUP_LABEL[group]} · ${what}</div>
+        <div class="val">${val}</div>
+        <div class="who">${a.name} · ${fmtDate(a.d)}</div>
+      </div>`);
+  }
+  const runs  = DATA.filter(a=>a.g==='run'  && a.distance>0);
+  const rides = DATA.filter(a=>a.g==='ride' && a.distance>0);
+  const swims = DATA.filter(a=>a.g==='swim' && a.distance>0);
+
+  if(runs.length){
+    const longest = best(runs, a=>a.distance);
+    add('run','maior distância', fmtKm(longest.distance,1), longest);
+    const f5 = runs.filter(a=>a.distance>=5000 && a.average_speed>0);
+    if(f5.length){ const r = best(f5, a=>a.average_speed); add('run','melhor pace (≥5 km)', paceRun(r.average_speed), r); }
+    const f21 = runs.filter(a=>a.distance>=21000 && a.average_speed>0);
+    if(f21.length){ const r = best(f21, a=>a.average_speed); add('run','melhor pace (≥21 km)', paceRun(r.average_speed), r); }
+  }
+  if(rides.length){
+    const longest = best(rides, a=>a.distance);
+    add('ride','maior distância', fmtKm(longest.distance,1), longest);
+    const f40 = rides.filter(a=>a.distance>=40000 && a.average_speed>0);
+    if(f40.length){ const r = best(f40, a=>a.average_speed); add('ride','melhor média (≥40 km)', kmh(r.average_speed), r); }
+    const climb = best(rides, a=>a.total_elevation_gain||0);
+    if(climb.total_elevation_gain) add('ride','maior elevação',
+      Math.round(climb.total_elevation_gain).toLocaleString('pt-BR')+' m', climb);
+  }
+  if(swims.length){
+    const longest = best(swims, a=>a.distance);
+    add('swim','maior distância', (longest.distance).toLocaleString('pt-BR',{maximumFractionDigits:0})+' m', longest);
+    const f1k = swims.filter(a=>a.distance>=1000 && a.average_speed>0);
+    if(f1k.length){ const s = best(f1k, a=>a.average_speed); add('swim','melhor pace (≥1 km)', paceSwim(s.average_speed), s); }
+  }
+})();
+
+/* ---------- últimas atividades ---------- */
+(function recent(){
+  const tbody = document.querySelector('#recent tbody');
+  [...DATA].slice(-12).reverse().forEach(a=>{
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${fmtDate(a.d)}</td>
+        <td class="name">${a.name||''}</td>
+        <td><span class="pill" style="background:${GROUP_COLOR[a.g]}">${GROUP_LABEL[a.g]}</span></td>
+        <td>${a.distance ? fmtKm(a.distance,1) : '–'}</td>
+        <td>${fmtDur(a.moving_time||0)}</td>
+        <td>${ritmo(a)}</td>
+      </tr>`);
+  });
+})();
+</script>
+</body>
+</html>
