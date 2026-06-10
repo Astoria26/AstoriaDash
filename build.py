@@ -11,6 +11,8 @@ HERO_LINE2 = "EM NÚMEROS"   # segunda linha (laranja)
 # ============================
 
 data = pathlib.Path("data/activities.json").read_text(encoding="utf-8")
+extra_p = pathlib.Path("data/extra.json")
+extra = extra_p.read_text(encoding="utf-8") if extra_p.exists() else "{}"
 app_js = pathlib.Path("app.js").read_text(encoding="utf-8")
 template = pathlib.Path("template.html").read_text(encoding="utf-8")
 
@@ -19,6 +21,7 @@ html = (template
         .replace("__HERO_LINE1__", HERO_LINE1)
         .replace("__HERO_LINE2__", HERO_LINE2)
         .replace("__APP_JS__", app_js)
+        .replace("__EXTRA__", extra)
         .replace("__DATA__", data))
 
 pathlib.Path("docs").mkdir(exist_ok=True)
