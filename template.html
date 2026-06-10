@@ -103,6 +103,22 @@
   nav.toc a{color:var(--muted);text-decoration:none}
   nav.toc a:hover{color:var(--orange)}
   footer{margin-top:60px;color:var(--muted);font-size:.78rem;border-top:1px solid var(--border);padding-top:16px;font-family:'DM Mono',monospace}
+  @media(max-width:640px){
+    nav.toc .inner{gap:10px;font-size:.68rem;padding:8px 12px}
+    .hero{padding:44px 0 20px}
+    .sec{padding-top:40px}
+    .chartbox{height:210px}
+    .chartbox.tall{height:250px}
+    #nmap{min-height:240px}
+    #progwrap{flex-direction:column;flex-wrap:nowrap;gap:10px}
+    #progwrap>div{width:100%}
+    .restbox{display:flex;align-items:baseline;gap:10px;text-align:left;min-width:0}
+    .restbox .v{font-size:2rem}
+    .recent .chartbox{height:170px;max-width:230px;margin:0 auto}
+    .bignum .v{font-size:2rem}
+    .ndetail .nm{font-size:1.3rem}
+    .ntable td,.ntable th{padding:9px 10px}
+  }
 </style>
 </head>
 <body>
@@ -165,7 +181,7 @@
     <div class="tabs" id="yearTabs" style="margin-bottom:14px"></div>
     <div class="panel">
       <div id="progwrap">
-        <div style="flex:1">
+        <div style="flex:1;min-width:0">
           <div id="heatmap"></div>
           <div class="legend">Menos
             <i style="background:#ece8e0"></i><i style="background:#fec5ab"></i>
