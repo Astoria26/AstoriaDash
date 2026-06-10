@@ -146,9 +146,12 @@ function notableData(){
 function renderNotable(){
   document.getElementById('notSport').textContent = GLABEL[notState.sport];
   // sub-abas conforme esporte
-  const modes = notState.sport==='swim'
+  const modes = notState.sport==='ride'
+    ? [['long','Mais longas'],['elev','Elevação']]
+    : notState.sport==='swim'
     ? [['pb','Melhores'],['long','Mais longas']]
     : [['pb','Melhores'],['long','Mais longas'],['elev','Elevação']];
+  if(!modes.some(m=>m[0]===notState.mode)) notState.mode = modes[0][0];
   document.getElementById('notModeTabs').innerHTML = modes.map(([v,t])=>
     `<button class="tab ${v===notState.mode?'on':''}" data-accent data-m="${v}">${t}</button>`).join('');
   document.querySelectorAll('#notModeTabs .tab').forEach(b=>b.onclick=()=>{notState.mode=b.dataset.m;renderNotable();});
@@ -216,7 +219,8 @@ function drawMap(poly){
 
 document.querySelectorAll('#notSportTabs .tab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#notSportTabs .tab').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); notState.sport=b.dataset.v; notState.mode='pb'; renderNotable();
+  b.classList.add('on'); notState.sport=b.dataset.v;
+  notState.mode = b.dataset.v==='ride' ? 'long' : 'pb'; renderNotable();
 });
 renderNotable();
 
@@ -263,7 +267,7 @@ function buildStats(){
   /* --- distância média por dia da semana (radar) --- */
   const DOW=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   const dsum=new Array(7).fill(0), dcnt=new Array(7).fill(0);
-  list.forEach(a=>{const w=a.d.getDay();dsum[w]+=(a.distance||0)/1000;dcnt[w]++;});
+  list.forEach(a=>{if(!(a.distance>0))return;const w=a.d.getDay();dsum[w]+=a.distance/1000;dcnt[w]++;});
   const davg=dsum.map((s,i)=>dcnt[i]?s/dcnt[i]:0);
   mk('cDow',{type:'radar',
     data:{labels:DOW,datasets:[{data:davg,backgroundColor:GCOLOR[statSport]+'33',borderColor:GCOLOR[statSport],borderWidth:1.5,pointRadius:2}]},
@@ -277,7 +281,7 @@ function buildStats(){
     ? [[0,1,'0–1 km'],[1,2,'1–2 km'],[2,3,'2–3 km'],[3,5,'3–5 km'],[5,99,'5 km+']]
     : [[0,20,'0–20 km'],[20,40,'20–40 km'],[40,60,'40–60 km'],[60,80,'60–80 km'],[80,120,'80–120 km'],[120,9999,'120 km+']];
   const binCounts=bins.map(()=>0);
-  list.forEach(a=>{const d=(a.distance||0)/1000;const i=bins.findIndex(b=>d>=b[0]&&d<b[1]);if(i>=0)binCounts[i]++;});
+  list.forEach(a=>{if(!(a.distance>0))return;const d=a.distance/1000;const i=bins.findIndex(b=>d>=b[0]&&d<b[1]);if(i>=0)binCounts[i]++;});
   mk('cDistHist',{type:'bar',
     data:{labels:bins.map(b=>b[2]),datasets:[{data:binCounts,backgroundColor:GCOLOR[statSport==='all'?'run':statSport],borderRadius:3}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
@@ -313,6 +317,16 @@ function buildStats(){
     speedTitle.textContent='Distribuição de pace (/km)';
     const vals=moving.filter(a=>a.g==='run').map(a=>1000/a.average_speed/60);
     drawDensity('cSpeed',vals,3,8,v=>mss(v*60),speedSub,true);
+  }
+
+  /* --- distribuição de potência (só pedal) --- */
+  const pPow=document.getElementById('pPower');
+  const watts=list.filter(a=>a.g==='ride'&&a.device_watts&&a.average_watts>0).map(a=>a.average_watts);
+  if(statSport!=='ride'||watts.length<3){ pPow.classList.add('hidden'); }
+  else{
+    pPow.classList.remove('hidden');
+    const lo=Math.max(0,Math.min(...watts)-20), hi=Math.max(...watts)+20;
+    drawDensity('cPower',watts,lo,hi,v=>nf(v)+' W',document.getElementById('powSub'));
   }
 
   /* --- zonas de FC (barras coloridas) --- */
@@ -412,10 +426,21 @@ function drawHeatmap(){
     if(dow===0&&d.getMonth()!==lastMon){lastMon=d.getMonth();svg+=`<text x="${left+w*(cell+gap)}" y="11">${MON[lastMon]}</text>`;}
     const k=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     const sec=byDay[k]||0; if(sec>0)active++;
-    svg+=`<rect x="${left+w*(cell+gap)}" y="${top+dow*(cell+gap)}" width="${cell}" height="${cell}" rx="2" fill="${colors[lvl(sec)]}"><title>${fmtDate(d)} — ${sec?dur(sec):'descanso'}</title></rect>`;
+    svg+=`<rect x="${left+w*(cell+gap)}" y="${top+dow*(cell+gap)}" width="${cell}" height="${cell}" rx="2" fill="${colors[lvl(sec)]}" data-tip="${fmtDate(d)} — ${sec?dur(sec):'descanso'}"></rect>`;
   }
   svg+='</svg>';
-  document.getElementById('heatmap').innerHTML=svg;
+  const hm=document.getElementById('heatmap');
+  hm.innerHTML=svg;
+  // tooltip instantâneo
+  let tip=document.getElementById('hmtip');
+  if(!tip){ tip=document.createElement('div'); tip.id='hmtip';
+    tip.style.cssText='position:fixed;z-index:99;background:#1c1a17;color:#fff;font:11px "DM Mono",monospace;padding:4px 8px;border-radius:5px;pointer-events:none;display:none;white-space:nowrap';
+    document.body.appendChild(tip); }
+  hm.onmousemove=e=>{ const t=e.target.getAttribute&&e.target.getAttribute('data-tip');
+    if(t){ tip.textContent=t; tip.style.display='block';
+      tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-28)+'px'; }
+    else tip.style.display='none'; };
+  hm.onmouseleave=()=>{ tip.style.display='none'; };
   // rest days
   let totalDays;
   if(progYear==='last365') totalDays=365;
