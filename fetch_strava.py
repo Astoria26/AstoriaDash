@@ -19,8 +19,7 @@ CLIENT_ID = os.environ["STRAVA_CLIENT_ID"]
 CLIENT_SECRET = os.environ["STRAVA_CLIENT_SECRET"]
 REFRESH_TOKEN = os.environ["STRAVA_REFRESH_TOKEN"]
 
-# Campos que vao para o site. GPS (start_latlng/end_latlng) fica de fora
-# de proposito, por privacidade: o site e publico.
+# Campos que vao para o site.
 KEEP = [
     "name",
     "sport_type",
@@ -34,6 +33,8 @@ KEEP = [
     "average_heartrate",
     "max_heartrate",
     "average_watts",
+    "trainer",                 # 1 = rolo/virtual
+    "polyline",                # rota codificada (preenchido abaixo)
 ]
 
 
@@ -91,7 +92,13 @@ def main():
         sys.exit(1)
 
     # 3) Mantem so os campos necessarios
-    slim = [{k: a.get(k) for k in KEEP} for a in activities]
+    slim = []
+    for a in activities:
+        row = {k: a.get(k) for k in KEEP if k != "polyline"}
+        # A rota vem aninhada em a["map"]["summary_polyline"]
+        m = a.get("map") or {}
+        row["polyline"] = m.get("summary_polyline") or None
+        slim.append(row)
     slim.sort(key=lambda a: a["start_date_local"])
 
     os.makedirs("data", exist_ok=True)
