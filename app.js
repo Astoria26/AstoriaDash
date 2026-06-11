@@ -7,7 +7,7 @@ const SPORT_MAP = {Run:'run',TrailRun:'run',VirtualRun:'run',
   Ride:'ride',VirtualRide:'ride',GravelRide:'ride',MountainBikeRide:'ride',EBikeRide:'ride',
   Swim:'swim'};
 const GLABEL = {run:'corrida',ride:'pedal',swim:'natação',strength:'musculação',other:'outros',all:'tudo'};
-const GCOLOR = {run:'#fc4c02',ride:'#1d6fa5',swim:'#0e8a7d',strength:'#c0418a',other:'#9a948a',all:'#1c1a17'};
+const GCOLOR = {run:'#ff5b2e',ride:'#38c7c0',swim:'#5b8cff',strength:'#c0418a',other:'#9a948a',all:'#ff5b2e'};
 const GICON  = {run:'🏃',ride:'🚴',swim:'🏊',strength:'🏋️',other:'•'};
 
 DATA.forEach(a=>{
@@ -66,10 +66,10 @@ function ritmo(a){
 /* ====================================================================
    Chart.js padrões
    ==================================================================== */
-Chart.defaults.font.family = "'DM Sans', sans-serif";
-Chart.defaults.color = '#8a857c';
-Chart.defaults.borderColor = '#e4dfd5';
-const GRID = {color:'#efece4'};
+Chart.defaults.font.family = "'Archivo', sans-serif";
+Chart.defaults.color = '#8a8a86';
+Chart.defaults.borderColor = 'rgba(255,255,255,.10)';
+const GRID = {color:'rgba(255,255,255,.07)'};
 const charts = {};
 function mk(id,cfg){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart(document.getElementById(id),cfg); }
 
@@ -237,10 +237,10 @@ function drawMap(poly){
   if(!nmap){
     host.innerHTML='';
     nmap = L.map(host,{zoomControl:false,attributionControl:false,scrollWheelZoom:false});
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(nmap);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(nmap);
   }
   if(ntrack) ntrack.remove();
-  ntrack = L.polyline(coords,{color:'#fc4c02',weight:3.5,opacity:.95}).addTo(nmap);
+  ntrack = L.polyline(coords,{color:'#ff5b2e',weight:3.5,opacity:.95}).addTo(nmap);
   nmap.fitBounds(ntrack.getBounds(),{padding:[20,20]});
   setTimeout(()=>nmap.invalidateSize(),100);
 }
@@ -276,7 +276,7 @@ function buildStats(){
   const years=Object.keys(byYear).sort();
   mk('cAnnual',{type:'bar',
     data:{labels:years,datasets:[{data:years.map(y=>byYear[y]),
-      backgroundColor:statSport==='all'?'#1c1a17':GCOLOR[statSport],borderRadius:3}]},
+      backgroundColor:statSport==='all'?'#ff5b2e':GCOLOR[statSport],borderRadius:3}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>nf(c.parsed.y)+' km'}}},
       scales:{x:{grid:{display:false}},y:{grid:GRID,ticks:{callback:v=>nf(v)}}}}});
@@ -324,7 +324,7 @@ function buildStats(){
     const out=list.length-virt;
     mk('cVirtual',{type:'doughnut',
       data:{labels:['Ao ar livre','Virtual'],datasets:[{data:[out,virt],
-        backgroundColor:[GCOLOR[statSport==='all'?'run':statSport],'#cfc9bf'],borderWidth:0}]},
+        backgroundColor:[GCOLOR[statSport==='all'?'run':statSport],'#2b2b31'],borderWidth:0}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
         plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}},
           tooltip:{callbacks:{label:c=>c.label+': '+c.parsed+' ('+nf(c.parsed/list.length*100)+'%)'}}}}});
@@ -410,8 +410,8 @@ function drawDensity(id, vals, lo, hi, fmt, subEl, reverse=false){
   const bw=Math.max(1.06*sd*Math.pow(vals.length,-0.2), step);
   const dens=kde(vals,grid,bw);
   mk(id,{type:'line',
-    data:{labels:grid,datasets:[{data:dens,borderColor:'#fc4c02',borderWidth:2,fill:true,
-      backgroundColor:'rgba(252,76,2,.12)',pointRadius:0,tension:.4}]},
+    data:{labels:grid,datasets:[{data:dens,borderColor:'#ff5b2e',borderWidth:2,fill:true,
+      backgroundColor:'rgba(255,91,46,.14)',pointRadius:0,tension:.4}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{enabled:false}},
       scales:{x:{grid:GRID,reverse,ticks:{maxTicksLimit:8,callback:(v,i)=>i%8===0?fmt(grid[i]):''}},
@@ -448,7 +448,7 @@ function drawHeatmap(){
   const gridStart=new Date(start); gridStart.setDate(gridStart.getDate()-gridStart.getDay());
   const cell=12,gap=3,top=18,left=28;
   const weeks=Math.ceil(((end-gridStart)/864e5+1)/7);
-  const colors=['#ece8e0','#fec5ab','#fd8d59','#fc4c02','#a83202'];
+  const colors=['#1d1d22','#46210f','#8a3a18','#d24f1e','#ff5b2e'];
   const lvl=s=>s===0?0:s<1800?1:s<3600?2:s<5400?3:4;
   const MON=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   const DOW=['','seg','','qua','','sex',''];
@@ -518,7 +518,7 @@ function buildRecent(){
   const order=Object.keys(byG).sort((a,b)=>byG[b].t-byG[a].t);
   mk('cRecBreak',{type:'doughnut',
     data:{labels:order.map(g=>GLABEL[g]),datasets:[{data:order.map(g=>byG[g].t),
-      backgroundColor:order.map(g=>GCOLOR[g]),borderWidth:2,borderColor:'#fffdf9'}]},
+      backgroundColor:order.map(g=>GCOLOR[g]),borderWidth:2,borderColor:'#16161a'}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>GLABEL[order[c.dataIndex]]+': '+dur(byG[order[c.dataIndex]].t)}}}}});
   document.getElementById('recBreak').innerHTML = order.map(g=>`
